@@ -1,0 +1,64 @@
+apply plugin: 'java'
+apply plugin: 'idea'
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+}
+
+dependencies {
+    compile(
+            fileTree(dir: 'libs', include: '**/*.jar'),
+            'org.apache.commons:commons-lang3:3.12.0',
+            'commons-io:commons-io:2.11.0',
+    )
+}
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+task copyToLibJars(type: Copy) {
+    into "$buildDir/libs/lib"
+    from configurations.runtime
+    dependsOn jar
+}
+
+task copyToLib(type: Copy) {
+    into "$buildDir/libs/lib"
+    from 'libs'
+    exclude '**/*.jar'
+    dependsOn copyToLibJars
+}
+
+task make {
+    dependsOn copyToLib
+}
+
+jar {
+    baseName = 'CRPT_Parser'
+    manifest {
+        attributes 'Main-Class': 'ru.dreamkas.crpt.Main'
+    }
+    from {
+        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    from sourceSets.main.allSource
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+//artifacts {
+//    archives sourcesJar
+//}

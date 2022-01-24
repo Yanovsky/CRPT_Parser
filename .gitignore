@@ -1,0 +1,9 @@
+out/
+bin/
+build/
+gradle/
+.idea/
+/.gradle/
+*.iml
+ScalesService
+!.idea/
