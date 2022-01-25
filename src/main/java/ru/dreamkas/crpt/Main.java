@@ -11,16 +11,13 @@ public class Main {
 
     public static void main(String[] args) throws IOException {
         UIManager.put("FileChooser.readOnly", true);
-        JFileChooser fc = new JFileChooser(Paths.get("D:", "SVNAll", "exchange").toFile());
-        FileNameExtensionFilter crpt2Filter = new FileNameExtensionFilter("Уведомления ФФД 1.2", "crpt2");
-        FileNameExtensionFilter crptFilter = new FileNameExtensionFilter("Уведомления ФФД 1.05", "crpt");
-        fc.addChoosableFileFilter(crpt2Filter);
-        fc.addChoosableFileFilter(crptFilter);
-        fc.setFileFilter(crpt2Filter);
+        JFileChooser fc = new JFileChooser(Paths.get(".").normalize().toAbsolutePath().toFile());
+        fc.addChoosableFileFilter(new FileNameExtensionFilter("Уведомления ФФД 1.2", "crpt2"));
+        //fc.addChoosableFileFilter(new FileNameExtensionFilter("Уведомления ФФД 1.05", "crpt"));
+        fc.setFileFilter(fc.getChoosableFileFilters()[1]);
         fc.setFileSelectionMode(JFileChooser.FILES_ONLY);
         fc.setMultiSelectionEnabled(false);
         fc.setDialogType(JFileChooser.OPEN_DIALOG);
-        UIManager.put("FileChooser.readOnly", UIManager.getBoolean("FileChooser.readOnly"));
         if (fc.showDialog(null, null) == JFileChooser.APPROVE_OPTION) {
             new Parser().parse(fc.getSelectedFile());
         }
