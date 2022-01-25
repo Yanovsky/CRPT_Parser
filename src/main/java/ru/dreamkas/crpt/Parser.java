@@ -76,12 +76,12 @@ public class Parser {
         FileUtils.writeStringToFile(outputFile, "Список уведомлений:\r\n", StandardCharsets.UTF_8, true);
         while (offset < bytes.length) {
             int length = Short.toUnsignedInt(ByteBuffer.wrap(bytes, offset, 2).order(ByteOrder.LITTLE_ENDIAN).getShort());
-            byte[] dataBytes = Arrays.copyOfRange(bytes, offset, offset + length);
+            byte[] dataBytes = Arrays.copyOfRange(bytes, offset+2, offset + length + 2);
             long crc16 = Short.toUnsignedInt(ByteBuffer.wrap(dataBytes, 2, 2).order(ByteOrder.LITTLE_ENDIAN).getShort());
             byte[] bytesForCRC = ByteBuffer.allocate(length - 2).put(dataBytes, 0, 2).put(dataBytes, 4, length - 4).array();
             long crc16Calculated = Integer.toUnsignedLong(BytesUtils.calculateCRC16(bytesForCRC));
 
-            int number = Short.toUnsignedInt(ByteBuffer.wrap(dataBytes, 18, 2).getShort());
+            int number = Short.toUnsignedInt(ByteBuffer.wrap(dataBytes, 20, 2).getShort());
             FileUtils.writeStringToFile(outputFile,
                 String.format("\tУведомление №%d (%d bytes), CRC16 в файле: %d, рассчитанная: %d. CRC16 %s. Данные: %s%n",
                     number, length, crc16, crc16Calculated, BooleanUtils.toString(crc16 == crc16Calculated, "совпадают", "НЕ СОВПАДАЮТ!"),
@@ -90,7 +90,7 @@ public class Parser {
                 StandardCharsets.UTF_8,
                 true
             );
-            offset = offset + length;
+            offset = offset + length + 2;
         }
     }
 }
