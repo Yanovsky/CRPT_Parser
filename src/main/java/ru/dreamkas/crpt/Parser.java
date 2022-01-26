@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.AbstractMap;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -17,12 +18,14 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.BooleanUtils;
 
-public class Parser {
+public enum Parser {
+    INSTANCE;
+
     private final Charset cp1251 = Charset.forName("cp1251");
     private final Map<String, Map.Entry<Integer, Integer>> header;
     private final int headerSize;
 
-    public Parser() {
+    Parser() {
         header = new LinkedHashMap<>();
         header.put("Наименование файла выгрузки: «%s»", new AbstractMap.SimpleEntry<>(0, 66));
         header.put("Программа выгрузки: «%s»", new AbstractMap.SimpleEntry<>(66, 256));
@@ -44,8 +47,7 @@ public class Parser {
         ByteBuffer dataBuffer = ByteBuffer.allocate(bytes.length - 4);
         dataBuffer.put(bytes, 0, headerSize - 4).put(bytes, headerSize, bytes.length - headerSize);
         final long calcCrc = BytesUtils.calculateCRC32(dataBuffer.array());
-        FileUtils.writeLines(outputFile,
-            StandardCharsets.UTF_8.name(),
+        writeStrings(outputFile,
             header.entrySet().stream()
                 .map(e -> {
                     int offset = e.getValue().getKey();
@@ -69,28 +71,43 @@ public class Parser {
                     }
                     return String.format(e.getKey(), values);
                 })
-                .collect(Collectors.toList()),
-            true
+                .collect(Collectors.toList())
         );
         int offset = headerSize;
-        FileUtils.writeStringToFile(outputFile, "Список уведомлений:\r\n", StandardCharsets.UTF_8, true);
+        writeString(outputFile, "Список уведомлений:\r\n");
         while (offset < bytes.length) {
             int length = Short.toUnsignedInt(ByteBuffer.wrap(bytes, offset, 2).order(ByteOrder.LITTLE_ENDIAN).getShort());
-            byte[] dataBytes = Arrays.copyOfRange(bytes, offset+2, offset + length + 2);
-            long crc16 = Short.toUnsignedInt(ByteBuffer.wrap(dataBytes, 2, 2).order(ByteOrder.LITTLE_ENDIAN).getShort());
-            byte[] bytesForCRC = ByteBuffer.allocate(length - 2).put(dataBytes, 0, 2).put(dataBytes, 4, length - 4).array();
+            byte[] dataBytes = Arrays.copyOfRange(bytes, offset, offset + length + 2);
+            long crc16 = Short.toUnsignedInt(ByteBuffer.wrap(dataBytes, 4, 2).order(ByteOrder.LITTLE_ENDIAN).getShort());
+            byte[] bytesForCRC = ByteBuffer.allocate(length - 2).put(dataBytes, 2, 2).put(dataBytes, 6, length - 4).array();
             long crc16Calculated = Integer.toUnsignedLong(BytesUtils.calculateCRC16(bytesForCRC));
 
             int number = Short.toUnsignedInt(ByteBuffer.wrap(dataBytes, 20, 2).getShort());
-            FileUtils.writeStringToFile(outputFile,
+            writeString(outputFile,
                 String.format("\tУведомление №%d (%d bytes), CRC16 в файле: %d, рассчитанная: %d. CRC16 %s. Данные: %s%n",
                     number, length, crc16, crc16Calculated, BooleanUtils.toString(crc16 == crc16Calculated, "совпадают", "НЕ СОВПАДАЮТ!"),
                     BytesUtils.toString(dataBytes)
-                ),
-                StandardCharsets.UTF_8,
-                true
+                )
             );
             offset = offset + length + 2;
+        }
+    }
+
+    private void writeStrings(File outputFile, Collection<String> value) {
+        try {
+            FileUtils.writeLines(outputFile, StandardCharsets.UTF_8.name(), value, true);
+            value.forEach(System.out::println);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void writeString(File outputFile, String value) {
+        try {
+            FileUtils.writeStringToFile(outputFile, value, StandardCharsets.UTF_8, true);
+            System.out.print(value);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 }

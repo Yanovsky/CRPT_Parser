@@ -1,7 +1,6 @@
 package ru.dreamkas.crpt;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Map;
@@ -16,7 +15,7 @@ import org.apache.commons.lang3.StringUtils;
 
 public class Main {
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
         Map<String, String> properties = Arrays.stream(args).collect(Collectors.toMap(a -> StringUtils.substringBefore(a, "="), a -> StringUtils.substringAfter(a, "=")));
         File file = null;
         if (properties.containsKey("-file")) {
@@ -39,9 +38,13 @@ public class Main {
         }
         if (file == null || !file.exists()) {
             JOptionPane.showMessageDialog(null, "Файл не найден", "Ошибка", JOptionPane.ERROR_MESSAGE);
-            throw new FileNotFoundException();
+            return;
         }
-        new Parser().parse(file);
-        JOptionPane.showMessageDialog(null, "Сформирован файл " + file.getAbsolutePath(), "Ошибка", JOptionPane.INFORMATION_MESSAGE);
+        try {
+            Parser.INSTANCE.parse(file);
+            JOptionPane.showMessageDialog(null, "Сформирован файл " + file.getAbsolutePath(), "Ошибка", JOptionPane.INFORMATION_MESSAGE);
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(null, e.getMessage(), "Ошибка", JOptionPane.ERROR_MESSAGE);
+        }
     }
 }
