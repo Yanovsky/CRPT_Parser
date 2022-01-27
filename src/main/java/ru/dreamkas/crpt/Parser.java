@@ -26,15 +26,15 @@ public enum Parser {
 
     Parser() {
         header = new LinkedHashMap<>();
-        header.put("Наименование файла выгрузки: «%s»", new HeaderFormat(getLastLength(), 66));
-        header.put("Программа выгрузки: «%s»", new HeaderFormat(getLastLength(), 256));
-        header.put("Регистрационный номер ККТ: «%s»", new HeaderFormat(getLastLength(), 20));
-        header.put("Номер ФН: «%s»", new HeaderFormat(getLastLength(), 16));
-        header.put("Номер версии ФФД: %d", new HeaderFormat(getLastLength(), 1));
-        header.put("Номер первого документа: %d", new HeaderFormat(getLastLength(), 4));
-        header.put("Номер последнего документа: %d", new HeaderFormat(getLastLength(), 4));
-        header.put("Количество уведомлений о реализации маркированного товара: %d", new HeaderFormat(getLastLength(), 4));
-        header.put("Контрольная сумма файла выгрузки: %d, расчитанная %d. Контрольные суммы %s", new HeaderFormat(getLastLength(), 4));
+        header.put("Наименование файла выгрузки (%s): «%s»", new HeaderFormat(getLastLength(), 66));
+        header.put("Программа выгрузки (%s): «%s»", new HeaderFormat(getLastLength(), 256));
+        header.put("Регистрационный номер ККТ (%s): «%s»", new HeaderFormat(getLastLength(), 20));
+        header.put("Номер ФН (%s): «%s»", new HeaderFormat(getLastLength(), 16));
+        header.put("Номер версии ФФД (%s): %d", new HeaderFormat(getLastLength(), 1));
+        header.put("Номер первого документа (%s): %d", new HeaderFormat(getLastLength(), 4));
+        header.put("Номер последнего документа (%s): %d", new HeaderFormat(getLastLength(), 4));
+        header.put("Количество уведомлений о реализации маркированного товара (%s): %d", new HeaderFormat(getLastLength(), 4));
+        header.put("Контрольная сумма файла выгрузки (%s): %d, расчитанная %d. Контрольные суммы %s", new HeaderFormat(getLastLength(), 4));
         headerSize = header.values().stream().mapToInt(HeaderFormat::getSize).sum();
     }
 
@@ -52,43 +52,47 @@ public enum Parser {
         final long crc32 = BytesUtils.calculateCRC32(dataBuffer.array());
         writeStrings(outputFile,
             header.entrySet().stream()
-                .map(headerFormat -> {
-                    int offset = headerFormat.getValue().getOffset();
-                    int length = headerFormat.getValue().getSize();
+                .map(entry -> {
+                    HeaderFormat headerFormat = entry.getValue();
+                    int offset = headerFormat.getOffset();
+                    int length = headerFormat.getSize();
                     ByteBuffer valueBytes = ByteBuffer.wrap(bytes, offset, length).order(ByteOrder.LITTLE_ENDIAN);
                     Object[] values;
+                    String partOfBytes = BytesUtils.toString(Arrays.copyOfRange(valueBytes.array(), offset, headerFormat.getLength()));
                     switch (length) {
                         case 1:
-                            values = new Object[]{ Byte.toUnsignedInt(valueBytes.get()) };
+                            values = new Object[]{ partOfBytes, Byte.toUnsignedInt(valueBytes.get()) };
                             break;
                         case 2:
-                            values = new Object[]{ Short.toUnsignedInt(valueBytes.getShort()) };
+                            values = new Object[]{ partOfBytes, Short.toUnsignedInt(valueBytes.getShort()) };
                             break;
                         case 4:
                             long value = Integer.toUnsignedLong(valueBytes.getInt());
-                            values = new Object[]{ value, crc32, BooleanUtils.toString(crc32 == value, "совпадают", "НЕ СОВПАДАЮТ!") };
+                            values = new Object[]{ partOfBytes, value, crc32, BooleanUtils.toString(crc32 == value, "совпадают", "НЕ СОВПАДАЮТ!") };
                             break;
                         default:
-                            values = new Object[]{ new String(Arrays.copyOfRange(bytes, offset, offset + length), cp1251) };
+                            values = new Object[]{ partOfBytes, new String(Arrays.copyOfRange(bytes, offset, offset + length), cp1251) };
                             break;
                     }
-                    return String.format(headerFormat.getKey(), values);
+                    return String.format(entry.getKey(), values);
                 })
                 .collect(Collectors.toList())
         );
         int offset = headerSize;
         writeString(outputFile, "Список уведомлений:\r\n");
         while (offset < bytes.length) {
+            byte[] lengthBytes = Arrays.copyOfRange(bytes, offset, offset + 2);
             int length = Short.toUnsignedInt(ByteBuffer.wrap(bytes, offset, 2).order(ByteOrder.LITTLE_ENDIAN).getShort());
             byte[] dataBytes = Arrays.copyOfRange(bytes, offset, offset + length + 2);
+            byte[] crc16Bytes = Arrays.copyOfRange(bytes, offset+4, offset + 6);
             long crc16 = Short.toUnsignedInt(ByteBuffer.wrap(dataBytes, 4, 2).order(ByteOrder.LITTLE_ENDIAN).getShort());
             byte[] bytesForCRC = ByteBuffer.allocate(length - 2).put(dataBytes, 2, 2).put(dataBytes, 6, length - 4).array();
             long crc16Calculated = Integer.toUnsignedLong(BytesUtils.calculateCRC16(bytesForCRC));
 
             int number = Short.toUnsignedInt(ByteBuffer.wrap(dataBytes, 20, 2).getShort());
             writeString(outputFile,
-                String.format("\tУведомление №%d (%d bytes), CRC16 в файле: %d, рассчитанная: %d. CRC16 %s. Данные: %s%n",
-                    number, length, crc16, crc16Calculated, BooleanUtils.toString(crc16 == crc16Calculated, "совпадают", "НЕ СОВПАДАЮТ!"),
+                String.format("\tУведомление №%d (%d bytes %s), CRC16 в файле (%s): %d, рассчитанная: %d. CRC16 %s. Данные: %s%n",
+                    number, length, BytesUtils.toString(lengthBytes), BytesUtils.toString(crc16Bytes), crc16, crc16Calculated, BooleanUtils.toString(crc16 == crc16Calculated, "совпадают", "НЕ СОВПАДАЮТ!"),
                     BytesUtils.toString(dataBytes)
                 )
             );
