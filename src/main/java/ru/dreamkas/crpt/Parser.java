@@ -16,10 +16,13 @@ import java.util.stream.Collectors;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.BooleanUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public enum Parser {
     INSTANCE;
 
+    private static final Logger log = LoggerFactory.getLogger(Parser.class);
     private final Charset cp1251 = Charset.forName("cp1251");
     private final Map<String, HeaderFormat> header;
     private final int headerSize;
@@ -79,7 +82,7 @@ public enum Parser {
                 .collect(Collectors.toList())
         );
         int offset = headerSize;
-        writeString(outputFile, "Список уведомлений:\r\n");
+        writeString(outputFile, "Список уведомлений:");
         while (offset < bytes.length) {
             byte[] lengthBytes = Arrays.copyOfRange(bytes, offset, offset + 2);
             int length = Short.toUnsignedInt(ByteBuffer.wrap(bytes, offset, 2).order(ByteOrder.LITTLE_ENDIAN).getShort());
@@ -91,7 +94,7 @@ public enum Parser {
 
             int number = Short.toUnsignedInt(ByteBuffer.wrap(dataBytes, 20, 2).getShort());
             writeString(outputFile,
-                String.format("\tУведомление №%d (%d bytes %s), CRC16 в файле (%s): %d, рассчитанная: %d. CRC16 %s. Данные: %s%n",
+                String.format("\tУведомление №%d (%d bytes %s), CRC16 в файле (%s): %d, рассчитанная: %d. CRC16 %s. Данные: %s",
                     number, length, BytesUtils.toString(lengthBytes), BytesUtils.toString(crc16Bytes), crc16, crc16Calculated, BooleanUtils.toString(crc16 == crc16Calculated, "совпадают", "НЕ СОВПАДАЮТ!"),
                     BytesUtils.toString(dataBytes)
                 )
@@ -103,7 +106,7 @@ public enum Parser {
     private void writeStrings(File outputFile, Collection<String> value) {
         try {
             FileUtils.writeLines(outputFile, StandardCharsets.UTF_8.name(), value, true);
-            value.forEach(System.out::println);
+            value.forEach(log::debug);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -111,8 +114,8 @@ public enum Parser {
 
     private void writeString(File outputFile, String value) {
         try {
-            FileUtils.writeStringToFile(outputFile, value, StandardCharsets.UTF_8, true);
-            System.out.print(value);
+            FileUtils.writeStringToFile(outputFile, value+"\r\n", StandardCharsets.UTF_8, true);
+            log.debug(value);
         } catch (IOException e) {
             e.printStackTrace();
         }
