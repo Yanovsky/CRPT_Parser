@@ -37,7 +37,7 @@ public enum Parser {
         header.put("Номер первого документа (%s): %d", new HeaderFormat(getLastLength(), 4));
         header.put("Номер последнего документа (%s): %d", new HeaderFormat(getLastLength(), 4));
         header.put("Количество уведомлений о реализации маркированного товара (%s): %d", new HeaderFormat(getLastLength(), 4));
-        header.put("Контрольная сумма файла выгрузки (%s): %d, расчитанная %d. Контрольные суммы %s", new HeaderFormat(getLastLength(), 4));
+        header.put("Контрольная сумма файла выгрузки CRC-32 IEEE 802.3 (%s): %d, расчитанная %d. Контрольные суммы %s", new HeaderFormat(getLastLength(), 4));
         headerSize = header.values().stream().mapToInt(HeaderFormat::getSize).sum();
     }
 
@@ -84,22 +84,28 @@ public enum Parser {
         int offset = headerSize;
         writeString(outputFile, "Список уведомлений:");
         while (offset < bytes.length) {
-            byte[] lengthBytes = Arrays.copyOfRange(bytes, offset, offset + 2);
-            int length = Short.toUnsignedInt(ByteBuffer.wrap(bytes, offset, 2).order(ByteOrder.LITTLE_ENDIAN).getShort());
-            byte[] dataBytes = Arrays.copyOfRange(bytes, offset, offset + length + 2);
-            byte[] crc16Bytes = Arrays.copyOfRange(bytes, offset+4, offset + 6);
-            long crc16 = Short.toUnsignedInt(ByteBuffer.wrap(dataBytes, 4, 2).order(ByteOrder.LITTLE_ENDIAN).getShort());
-            byte[] bytesForCRC = ByteBuffer.allocate(length - 2).put(dataBytes, 2, 2).put(dataBytes, 6, length - 4).array();
+            byte[] tagBytes = Arrays.copyOfRange(bytes, offset, offset + 2);
+            int tagNumber = Short.toUnsignedInt(ByteBuffer.wrap(tagBytes).order(ByteOrder.LITTLE_ENDIAN).getShort());
+            byte[] lengthBytes = Arrays.copyOfRange(bytes, offset+2, offset + 4);
+            int length = Short.toUnsignedInt(ByteBuffer.wrap(lengthBytes).order(ByteOrder.LITTLE_ENDIAN).getShort());
+            byte[] dataBytes = Arrays.copyOfRange(bytes, offset, offset + length + 4);
+            byte[] crc16Bytes = Arrays.copyOfRange(bytes, offset+6, offset + 8);
+            long crc16 = Short.toUnsignedInt(ByteBuffer.wrap(crc16Bytes).order(ByteOrder.LITTLE_ENDIAN).getShort());
+            byte[] bytesForCRC = ByteBuffer.allocate(length - 2).put(dataBytes, 4, 2).put(dataBytes, 8, length - 4).array();
             long crc16Calculated = Integer.toUnsignedLong(BytesUtils.calculateCRC16(bytesForCRC));
 
-            int number = Short.toUnsignedInt(ByteBuffer.wrap(dataBytes, 20, 2).getShort());
+            int number = Short.toUnsignedInt(ByteBuffer.wrap(dataBytes, 22, 2).getShort());
             writeString(outputFile,
-                String.format("\tУведомление №%d (%d bytes %s), CRC16 в файле (%s): %d, рассчитанная: %d. CRC16 %s. Данные: %s",
-                    number, length, BytesUtils.toString(lengthBytes), BytesUtils.toString(crc16Bytes), crc16, crc16Calculated, BooleanUtils.toString(crc16 == crc16Calculated, "совпадают", "НЕ СОВПАДАЮТ!"),
+                String.format("\tУведомление №%d (%d bytes: %s), Тег %d bytes: %s, CRC-16 IEEE 802.3 в файле (%s): %d, рассчитанная: %d. Контрольные суммы %s. Данные: %s",
+                    number,
+                    length, BytesUtils.toString(lengthBytes),
+                    tagNumber, BytesUtils.toString(tagBytes),
+                    BytesUtils.toString(crc16Bytes), crc16,
+                    crc16Calculated, BooleanUtils.toString(crc16 == crc16Calculated, "совпадают", "НЕ СОВПАДАЮТ!"),
                     BytesUtils.toString(dataBytes)
                 )
             );
-            offset = offset + length + 2;
+            offset = offset + length + 4;
         }
     }
 
