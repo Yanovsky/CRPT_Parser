@@ -41,8 +41,8 @@ public class Main {
             return;
         }
         try {
-            Parser.INSTANCE.parse(file);
-            JOptionPane.showMessageDialog(null, "Сформирован файл " + file.getAbsolutePath(), "Ошибка", JOptionPane.INFORMATION_MESSAGE);
+            File resultFile = Parser.INSTANCE.parse(file);
+            JOptionPane.showMessageDialog(null, "Сформирован файл " + resultFile.getAbsolutePath(), "Информация", JOptionPane.INFORMATION_MESSAGE);
         } catch (Exception e) {
             JOptionPane.showMessageDialog(null, e.getMessage(), "Ошибка", JOptionPane.ERROR_MESSAGE);
         }

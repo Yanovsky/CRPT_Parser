@@ -45,7 +45,7 @@ public enum Parser {
         return header.isEmpty() ? 0 : header.values().toArray(new HeaderFormat[0])[header.size() -1].getLength();
     }
 
-    public void parse(File file) throws IOException {
+    public File parse(File file) throws IOException {
         File outputFile = Paths.get(file.getParent()).resolve(FilenameUtils.removeExtension(file.getName()) + ".res").toFile();
         FileUtils.deleteQuietly(outputFile);
         byte[] bytes = FileUtils.readFileToByteArray(file);
@@ -107,6 +107,7 @@ public enum Parser {
             );
             offset = offset + length + 4;
         }
+        return outputFile;
     }
 
     private void writeStrings(File outputFile, Collection<String> value) {
